@@ -11,7 +11,7 @@
 #
 
 # Modify default IP
-sed -i 's/192.168.1.1/192.168.11.1/g' package/base-files/files/bin/config_generate
+sed -i 's/192.168.1.1/10.10.10.1/g' package/base-files/files/bin/config_generate
 #sed -i 's/KERNEL_PATCHVER:=5.15/KERNEL_PATCHVER:=6.1/g' target/linux/x86/Makefile
 #sed -i "s/.*PKG_VERSION:=.*/PKG_VERSION:=4.3.9_v1.2.14/" package/lean/qBittorrent-static/Makefile
 #sed -i "s/.*PKG_VERSION:=.*/PKG_VERSION:=5.0.0-stable/" package/libs/wolfssl/Makefile
@@ -29,9 +29,9 @@ sed -i 's/luci-static\/argon/luci-static\/argon/g' package/lean/default-settings
 sed -i 's/\${interface:+-i $interface}/\# ${interface:+-i $interface}/g' feeds/packages/utils/ttyd/files/ttyd.init
 
 # 修改升级检测
-sed -i 's|/Lenyu2020/Actions-OpenWrt-x86|/Zero-ZY/Actions-OpenWrt-x86|g' files/usr/share/Check_Update.sh
-sed -i 's|/Lenyu2020/Actions-OpenWrt-x86|/Zero-ZY/Actions-OpenWrt-x86|g' files/usr/share/Lenyu-auto.sh
-# sed -i 's|/Lenyu2020/Actions-OpenWrt-x86|/Zero-ZY/Actions-OpenWrt-x86|g' files/usr/share/Lenyu-version.sh
-sed -i 's|/Lenyu2020/Actions-OpenWrt-x86|/Zero-ZY/Actions-OpenWrt-x86|g' files/usr/share/Lenyu-pw.sh
+sed -i 's|/Lenyu2020/Actions-OpenWrt-x86|/mubinsy651/Actions-OpenWrt-x86|g' files/usr/share/Check_Update.sh
+sed -i 's|/Lenyu2020/Actions-OpenWrt-x86|/mubinsy651/Actions-OpenWrt-x86|g' files/usr/share/Lenyu-auto.sh
+# sed -i 's|/Lenyu2020/Actions-OpenWrt-x86|/mubinsy651/Actions-OpenWrt-x86|g' files/usr/share/Lenyu-version.sh
+sed -i 's|/Lenyu2020/Actions-OpenWrt-x86|/mubinsy651/Actions-OpenWrt-x86|g' files/usr/share/Lenyu-pw.sh
 
 # welcome test

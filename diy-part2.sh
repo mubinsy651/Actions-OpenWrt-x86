@@ -17,11 +17,11 @@ sed -i 's/192.168.1.1/10.10.10.1/g' package/base-files/files/bin/config_generate
 #sed -i "s/.*PKG_VERSION:=.*/PKG_VERSION:=5.0.0-stable/" package/libs/wolfssl/Makefile
 
 # 1. 替换 Luci 的默认核心主题依赖
-sed -i 's/luci-theme-bootstrap/luci-theme-argon/g' feeds/luci/collections/luci/Makefile
+# sed -i 's/luci-theme-bootstrap/luci-theme-argon/g' feeds/luci/collections/luci/Makefile
 # 2. 移除 Lean 源码中硬编码对 Argon 的默认指向
-sed -i 's/luci-theme-neobird/luci-theme-argon/g' feeds/luci/collections/luci/Makefile
+# sed -i 's/luci-theme-neobird/luci-theme-argon/g' feeds/luci/collections/luci/Makefile
 # 3. 强行修改底层默认设置脚本中的初始开机 UI 路径
-sed -i 's/luci-static\/neobird/luci-static\/argon/g' package/lean/default-settings/files/zzz-default-settings
+# sed -i 's/luci-static\/neobird/luci-static\/argon/g' package/lean/default-settings/files/zzz-default-settings
 
 # TTYD 免登录
 # sed -i 's|/bin/login|/bin/login -f root|g' feeds/packages/utils/ttyd/files/ttyd.config

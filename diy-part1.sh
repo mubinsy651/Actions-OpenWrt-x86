@@ -182,7 +182,7 @@ cat>files/usr/share/Check_Update.sh<<-\EOF
 #path=$(dirname $(readlink -f $0))
 # cd ${path}
 #检测准备
-if [ ! -f  "/etc/lenyu_version" ]; then
+if [ ! -f  "/etc/mubin651_version" ]; then
 	echo
 	echo -e "\033[31m 该脚本在非Lenyu固件上运行，为避免不必要的麻烦，准备退出… \033[0m"
 	echo
@@ -190,7 +190,7 @@ if [ ! -f  "/etc/lenyu_version" ]; then
 fi
 rm -f /tmp/cloud_version
 # 获取固件云端版本号、内核版本号信息
-current_version=`cat /etc/lenyu_version`
+current_version=`cat /etc/mubin651_version`
 wget -qO- -t1 -T2 "https://api.github.com/repos/mubinsy651/Actions-OpenWrt-x86/releases/latest" | grep "tag_name" | head -n 1 | awk -F ":" '{print $2}' | sed 's/\"//g;s/,//g;s/ //g;s/v//g'  > /tmp/cloud_ts_version
 if [ -s  "/tmp/cloud_ts_version" ]; then
 	cloud_version=`cat /tmp/cloud_ts_version | cut -d _ -f 1`

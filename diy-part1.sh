@@ -16,7 +16,7 @@
 # echo "src-git helloworld https://github.com/fw876/helloworld.git" >> "feeds.conf.default"
 #
 # Add passwall
-#echo "src-git passwall https://github.com/Openwrt-Passwall/openwrt-passwall.git;main" >> "feeds.conf.default"
+# echo "src-git passwall https://github.com/Openwrt-Passwall/openwrt-passwall.git;main" >> "feeds.conf.default"
 #
 # Add kiddin9
 # echo "src-git kiddin9 https://github.com/kiddin9/openwrt-packages.git" >> "feeds.conf.default"
@@ -114,9 +114,9 @@ EOF
 
 cat>lenyu.sh<<-\EOOF
 #!/bin/bash
-mubinsy651_version="`date '+%y%m%d%H%M'`_dev_Len yu" 
-echo $mubinsy651_version >  wget/DISTRIB_REVISION1 
-echo $mubinsy651_version | cut -d _ -f 1 >  files/etc/mubinsy651_version  
+lenyu_version="`date '+%y%m%d%H%M'`_dev_Len yu" 
+echo $lenyu_version >  wget/DISTRIB_REVISION1 
+echo $lenyu_version | cut -d _ -f 1 >  files/etc/lenyu_version  
 #######
 new_DISTRIB_REVISION=`cat  wget/DISTRIB_REVISION1`
 grep "DISTRIB_REVISION="  package/lean/default-settings/files/zzz-default-settings | cut -d \' -f 2 >  wget/DISTRIB_REVISION3
@@ -182,7 +182,7 @@ cat>files/usr/share/Check_Update.sh<<-\EOF
 #path=$(dirname $(readlink -f $0))
 # cd ${path}
 #检测准备
-if [ ! -f  "/etc/mubin651_version" ]; then
+if [ ! -f  "/etc/lenyu_version" ]; then
 	echo
 	echo -e "\033[31m 该脚本在非Lenyu固件上运行，为避免不必要的麻烦，准备退出… \033[0m"
 	echo
@@ -190,7 +190,7 @@ if [ ! -f  "/etc/mubin651_version" ]; then
 fi
 rm -f /tmp/cloud_version
 # 获取固件云端版本号、内核版本号信息
-current_version=`cat /etc/mubin651_version`
+current_version=`cat /etc/lenyu_version`
 wget -qO- -t1 -T2 "https://api.github.com/repos/mubinsy651/Actions-OpenWrt-x86/releases/latest" | grep "tag_name" | head -n 1 | awk -F ":" '{print $2}' | sed 's/\"//g;s/,//g;s/ //g;s/v//g'  > /tmp/cloud_ts_version
 if [ -s  "/tmp/cloud_ts_version" ]; then
 	cloud_version=`cat /tmp/cloud_ts_version | cut -d _ -f 1`
@@ -339,7 +339,7 @@ fi
 cp -f /usr/bin/xray /etc/xray_backup/xray_backup
 
 # 获取固件云端版本号、内核版本号信息
-current_version=`cat /etc/mubinsy651_version`
+current_version=`cat /etc/lenyu_version`
 wget -qO- -t1 -T2 "https://api.github.com/repos/mubinsy651/Actions-OpenWrt-x86/releases/latest" | grep "tag_name" | head -n 1 | awk -F ":" '{print $2}' | sed 's/\"//g;s/,//g;s/ //g;s/v//g'  > /tmp/cloud_ts_version
 if [ -s  "/tmp/cloud_ts_version" ]; then
 	cloud_version=`cat /tmp/cloud_ts_version | cut -d _ -f 1`
@@ -603,4 +603,3 @@ fi
 echo_blue "=== Passwall 热更新完成，网络已无缝恢复 ==="
 exit 0
 EOF
-

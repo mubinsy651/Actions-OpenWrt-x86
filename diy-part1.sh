@@ -114,9 +114,9 @@ EOF
 
 cat>lenyu.sh<<-\EOOF
 #!/bin/bash
-lenyu_version="`date '+%y%m%d%H%M'`_dev_Len yu" 
-echo $lenyu_version >  wget/DISTRIB_REVISION1 
-echo $lenyu_version | cut -d _ -f 1 >  files/etc/lenyu_version  
+mubinsy651_version="`date '+%y%m%d%H%M'`_dev_Len yu" 
+echo $mubinsy651_version >  wget/DISTRIB_REVISION1 
+echo $mubinsy651_version | cut -d _ -f 1 >  files/etc/mubinsy651_version  
 #######
 new_DISTRIB_REVISION=`cat  wget/DISTRIB_REVISION1`
 grep "DISTRIB_REVISION="  package/lean/default-settings/files/zzz-default-settings | cut -d \' -f 2 >  wget/DISTRIB_REVISION3

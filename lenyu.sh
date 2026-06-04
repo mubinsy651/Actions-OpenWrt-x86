@@ -5,8 +5,8 @@ mkdir -p wget files/etc
 
 # 2. 生成版本号 (将不规范的空格统一替换为下划线，保证环境变量安全)
 lenyu_version="$(date '+%y%m%d%H%M')_dev_Len_yu" 
-echo "$lenyu_version" > wget/DISTRIB_REVISION1 
-echo "$lenyu_version" | cut -d '_' -f 1 > files/etc/lenyu_version  
+echo "$mubinsy651_version" > wget/DISTRIB_REVISION1 
+echo "$mubinsy651_version" | cut -d '_' -f 1 > files/etc/lenyu_version  
 
 new_DISTRIB_REVISION=$(cat wget/DISTRIB_REVISION1)
 TARGET_FILE="package/lean/default-settings/files/zzz-default-settings"

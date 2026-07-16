@@ -1,301 +1,128 @@
 #
-# Copyright (c) 2019-2020 P3TERX <https://p3terx.com>
+# Copyright (c) 2019-2024 smallprogram
 #
 # This is free software, licensed under the MIT License.
 # See /LICENSE for more information.
 #
-# https://github.com/P3TERX/Actions-OpenWrt
-# Description: Build OpenWrt using GitHub Actions
+# https://github.com/smallprogram/OpenWrtAction
+# File: .github/workflows/Update_Checker.yml
+# Description: Source code update checker
 #
 
-name: Build OpenWrt
+name: Update_Checker
 
 on:
-  repository_dispatch:
   workflow_dispatch:
-    inputs:
-      ssh:
-        description: 'SSH connection to Actions'
-        required: false
-        default: 'false'
-
-env:
-  REPO_URL: https://github.com/coolsnowwolf/lede
-  REPO_BRANCH: master
-  FEEDS_CONF: feeds.conf.default
-  CONFIG_FILE: .diffconfig
-  DIY_P1_SH: diy-part1.sh
-  DIY_P2_SH: diy-part2.sh
-  UPLOAD_BIN_DIR: false
-  UPLOAD_FIRMWARE: true
-  UPLOAD_COWTRANSFER: false
-  UPLOAD_WETRANSFER: false
-  UPLOAD_RELEASE: true
-  TZ: Asia/Shanghai
+  schedule:
+    - cron: 0 1 */7 * *
 
 jobs:
-  build:
+  check:
     #runs-on: ubuntu-latest
     #runs-on: ubuntu-22.04
     runs-on: ubuntu-24.04
 
     steps:
-    - name: Checkout main-repo
-      uses: actions/checkout@v5
+
+    - name: Get Commit Hash
+      id: getHash
+      run: |
+        git clone https://github.com/coolsnowwolf/lede --filter=blob:none
+        cd lede
+        echo "SHA_01=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        cd
+
+        git clone https://github.com/coolsnowwolf/packages --filter=blob:none
+        cd packages
+        echo "SHA_02=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        cd
+
+        git clone https://github.com/coolsnowwolf/luci --filter=blob:none
+        cd luci
+        echo "SHA_03=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        cd
+        
+        git clone https://github.com/fw876/helloworld --filter=blob:none
+        cd helloworld
+        echo "SHA_04=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        cd
+
+        git clone https://github.com/Openwrt-Passwall/openwrt-passwall --filter=blob:none
+        cd openwrt-passwall
+        echo "SHA_05=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        cd
+
+    - name: Show Commit Head and Combination Heads
+      id: combHeader
+      run: |
+        echo "commitHash_All=\
+          ${{steps.getHash.outputs.SHA_01}}\
+          ${{steps.getHash.outputs.SHA_02}}\
+          ${{steps.getHash.outputs.SHA_03}}\
+          ${{steps.getHash.outputs.SHA_04}}\
+          ${{steps.getHash.outputs.SHA_05}}" >> $GITHUB_OUTPUT
+
+    - name: Compare Commit Hash
+      id: cacheHash
+      uses: actions/cache@v5
       with:
-        path: main-repo
+        path: .commitHash_All
+        key: HEAD-${{ steps.combHeader.outputs.commitHash_All }}
+   
 
-    - name: Free Disk Space (Ubuntu)
-      uses: jlumbroso/free-disk-space@main
-      with:
-        tool-cache: true
-        android: true
-        dotnet: true
-        haskell: true
-        large-packages: true
-        docker-images: true
-        swap-storage: false
-
-    - name: Check free space
-      run: df -hT
-
-    - name: Initialization environment
-      env:
-        DEBIAN_FRONTEND: noninteractive
+    - name: Save New Commit Hash
+      if: steps.cacheHash.outputs.cache-hit != 'true'
       run: |
-        sudo bash -c 'bash <(curl -s https://build-scripts.immortalwrt.org/init_build_environment.sh)'
-        sudo -E apt-get -qq autoremove --purge
-        sudo -E apt-get -qq clean
-        sudo timedatectl set-timezone "$TZ"
-
-    - name: Clone source code
-      run: git clone $REPO_URL -b $REPO_BRANCH openwrt
-
-    - name: Cache
-      uses: klever1988/cachewrtbuild@main
-      with:
-        ccache: 'true'
-        clean: 'false'
-        prefix: ${{ github.workspace }}/openwrt
-
-    - name: Install custom packages
-      working-directory: openwrt
-      run: |
-        mkdir package/luci-app-openclash
-        pushd package/luci-app-openclash
-        git init
-        git remote add -f origin https://github.com/vernesong/OpenClash.git
-        git config core.sparsecheckout true
-        echo "luci-app-openclash" >> .git/info/sparse-checkout
-        git pull --depth 1 origin master
-        git branch --set-upstream-to=origin/master
-        popd
-
-        pushd package
-        #luci-app-romupdate
-        git clone -b dev https://github.com/Blueplanet20120/luci-app-romupdate.git
+        echo ${{ steps.combHeader.outputs.commitHash_All }} | tee .commitHash_All
         
-        #aliyundrive-webdav
-        git clone https://github.com/messense/aliyundrive-webdav.git
-        
-        #luci-app-frpc
-        git clone https://github.com/kuoruan/luci-app-frpc.git
-        
-        #luci-theme-design
-        #git clone https://github.com/gngpp/luci-theme-design.git
-        
-        #luci-theme-neobird
-        git clone https://github.com/thinktip/luci-theme-neobird.git
-        
-        #luci-app-netdata
-        git clone https://github.com/sirpdboy/luci-app-netdata.git
-        
-        #luci-app-easytier
-        git clone https://github.com/EasyTier/luci-app-easytier.git
-        
-        #luci-app-ddns-go
-        git clone -b lua https://github.com/sirpdboy/luci-app-ddns-go.git
-        
-        #luci-app-bandwidthd
-        git clone https://github.com/AlexZhuo/luci-app-bandwidthd.git
-        
-        #luci-app-taskplan
-        git clone https://github.com/sirpdboy/luci-app-taskplan.git
-        
-        #luci-app-oaf
-        git clone https://github.com/destan19/OpenAppFilter.git package/OpenAppFilter  
-        
-        popd
-
-    - name: 加载自定义订阅源
-      working-directory: openwrt
-      run: |
-        [ -e ../main-repo/$FEEDS_CONF ] && mv ../main-repo/$FEEDS_CONF feeds.conf.default
-        chmod +x ../main-repo/$DIY_P1_SH
-        ../main-repo/$DIY_P1_SH
-        bash ../main-repo/lenyu.sh
-
-    - name: 更新订阅源
-      working-directory: openwrt
-      run: ./scripts/feeds update -a
-
-    - name: 安装订阅源
-      working-directory: openwrt
-      run: ./scripts/feeds install -a
-
-    - name: 加载自定义配置
-      working-directory: openwrt
-      run: |
-        [ -e ../main-repo/files ] && mv ../main-repo/files files
-        [ -e ../main-repo/$CONFIG_FILE ] && mv ../main-repo/$CONFIG_FILE .config
-        chmod +x ../main-repo/$DIY_P2_SH
-        ../main-repo/$DIY_P2_SH
-
-    - name: SSH connection to Actions
-      uses: P3TERX/ssh2actions@v1.0.0
-      if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh != 'false') || contains(github.event.action, 'ssh')
-      env:
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-
-    - name: 下载 package
-      id: package
-      run: |
-        cd openwrt
-        echo -e 'CONFIG_DEVEL=y\nCONFIG_CCACHE=y' >> .config
-        
-        # 1. 防 Rust 404
-        if [ -f feeds/packages/lang/rust/Makefile ]; then
-          sed -i '/download-ci-llvm/ s/true/false/g' feeds/packages/lang/rust/Makefile
-        fi
-        
-        # 2. 物理剔除 ksmbd 及其捆绑小弟
-        rm -rf package/kernel/ksmbd
-        rm -rf feeds/packages/net/ksmbd-tools
-        find feeds package -name "luci-app-ksmbd" -type d -exec rm -rf {} +
-        find feeds package -name "autosamba" -type d -exec rm -rf {} +
-        
-        # 3. 强制切换 samba4
-        sed -i 's/CONFIG_PACKAGE_luci-app-ksmbd=y/# CONFIG_PACKAGE_luci-app-ksmbd is not set/g' .config
-        sed -i 's/CONFIG_PACKAGE_ksmbd-server=y/# CONFIG_PACKAGE_ksmbd-server is not set/g' .config
-        sed -i 's/CONFIG_PACKAGE_autosamba=y/# CONFIG_PACKAGE_autosamba is not set/g' .config
-        echo "CONFIG_PACKAGE_luci-app-samba4=y" >> .config
-        echo "CONFIG_PACKAGE_samba4-libs=y" >> .config
-        echo "CONFIG_PACKAGE_samba4-server=y" >> .config
-        
-        # 4. ☢️ 物理剔除与 ccache 致命冲突的 vlmcsd (KMS 激活服务器)
-        #find feeds package -name "luci-app-vlmcsd" -type d -exec rm -rf {} +
-        #find feeds package -name "vlmcsd" -type d -exec rm -rf {} +
-        #sed -i 's/CONFIG_PACKAGE_luci-app-vlmcsd=y/# CONFIG_PACKAGE_luci-app-vlmcsd is not set/g' .config
-        #sed -i 's/CONFIG_PACKAGE_vlmcsd=y/# CONFIG_PACKAGE_vlmcsd is not set/g' .config
-        
-        # 4. 修复 vlmcsd (KMS 激活服务器)与 ccache 的冲突
-        if [ -f feeds/packages/net/vlmcsd/Makefile ]; then
-          sed -i 's/\$(MAKE) -C \$(PKG_BUILD_DIR)/CCACHE_DISABLE=1 \$(MAKE) -C \$(PKG_BUILD_DIR)/g' feeds/packages/net/vlmcsd/Makefile
-        fi
-        
-        make defconfig
-        make download -j8
-        find dl -size -1024c -exec ls -l {} \;
-        find dl -size -1024c -exec rm -f {} \;
-
-    - name: 编译固件
-      working-directory: openwrt
-      id: compile
-      run: |
-        echo -e "$(nproc) thread compile"
-        make -j$(nproc) || make -j1 || make -j1 V=s
-        echo "status=success" >> $GITHUB_OUTPUT
-        grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
-        [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
-        echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
-
-    - name: 检查空间占用（编译后）
-      if: (!cancelled())
-      run: df -hT
-
-    - name: 上传 bin 目录
-      uses: actions/upload-artifact@v6
-      if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
-      with:
-        name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-        path: openwrt/bin
-
-    # 【核心修复点开始】：给所有的后续动作加装 success 编译成功校验锁
-    - name: 运行 rename.sh
-      working-directory: openwrt
-      if: steps.compile.outputs.status == 'success' && !cancelled()
-      run: |
-        bash ../main-repo/rename.sh
-
-    - name: 整理文件
-      working-directory: openwrt
-      id: organize
-      if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true' && !cancelled()
-      run: |
-        cd bin/targets/*/*
-        rm -rf packages
-        echo "FIRMWARE=$PWD" >> $GITHUB_ENV
-        echo "status=success" >> $GITHUB_OUTPUT
-
-    - name: 上传固件目录
-      uses: actions/upload-artifact@v6
-      if: steps.organize.outputs.status == 'success' && !cancelled()
-      with:
-        name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
-        path: ${{ env.FIRMWARE }}
-
-    - name: 生成 release tag
-      working-directory: openwrt
-      id: tag
-      if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
-      run: |
-        touch release.txt
-        [ -f wget/op_version1 ] && echo "release_tag=$(cat wget/op_version1)" >> $GITHUB_OUTPUT || echo "release_tag=OpenWrt_${{ env.FILE_DATE }}" >> $GITHUB_OUTPUT
-        git log --pretty=format:"%s(#By %an)" --graph --since=3.hour >> release.txt
-        
-        git -C feeds/packages log --pretty=format:"%s(#By %an)" --graph --since=3.hour >> release.txt || true
-        git -C feeds/luci log --pretty=format:"%s(#By %an)" --graph --since=3.hour >> release.txt || true
-        git -C feeds/routing log --pretty=format:"%s(#By %an)" --graph --since=3.hour >> release.txt || true
-        git -C feeds/telephony log --pretty=format:"%s(#By %an)" --graph --since=3.hour >> release.txt || true
-        git -C feeds/helloworld log --pretty=format:"%s(#By %an)" --graph --since=4.hour >> release.txt || true
-        git -C feeds/passwall log --pretty=format:"%s(#By %an)" --graph --since=8.hour >> release.txt || true
-        git -C package/luci-app-openclash log --pretty=format:"%s(#By %an)" --graph --since=8.hour >> release.txt || true
-        
-        test ! -s release.txt && echo -e "\n* The source code is not updated." >> release.txt
-        sed -i '1i ## Firmware Update Log' release.txt
-        echo "status=success" >> $GITHUB_OUTPUT
-
-    - name: 上传固件并发布
-      uses: softprops/action-gh-release@v3
-      if: steps.tag.outputs.status == 'success' && !cancelled()
-      env:
-        GITHUB_TOKEN: ${{ secrets.ACTIONS_TRIGGER_PAT }}
-      with:
-        tag_name: ${{ steps.tag.outputs.release_tag }}
-        body_path: openwrt/release.txt
-        files: ${{ env.FIRMWARE }}/*
-    # 【核心修复点结束】
-
     - name: Delete workflow runs
       uses: Mattraks/delete-workflow-runs@main
       with:
-        retain_days: 1
-        keep_minimum_runs: 5
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          retain_days: 1
+          keep_minimum_runs: 3
 
     - name: Remove old Releases
-      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       env:
         GH_TOKEN: ${{ secrets.ACTIONS_TRIGGER_PAT }}
       run: |
         set -euo pipefail
+        # 与 dev-drprasad/delete-older-releases 一致：非 draft；排除最新 KEEP 条后，
+        # 在 KEEP_MIN 与 MAX_DAYS 均非 0 时，仅删除「下载量 < KEEP_MIN」或「早于 MAX_DAYS 天」的 release（含 tag）。
         REPO="${{ github.repository }}"
-        KEEP=10
-        i=0
-        while IFS= read -r tag; do
-          if [ "$i" -ge "$KEEP" ]; then
-            echo "Deleting release (and tag): $tag"
-            gh release delete "$tag" --yes --cleanup-tag -R "$REPO" || true
-          fi
-          i=$((i + 1))
-        done < <(gh api "repos/${REPO}/releases" --paginate --jq '.[] | .tag_name')
+        KEEP=5
+        KEEP_MIN=2
+        MAX_DAYS=60
+        RAW=$(gh api --paginate "repos/${REPO}/releases")
+        DATA=$(echo "$RAW" | jq -s 'flatten(1)')
+        COUNT=$(echo "$DATA" | jq 'length')
+        if [ "${COUNT:-0}" -eq 0 ]; then
+          echo "No releases."
+          exit 0
+        fi
+        while IFS= read -r line; do
+          [ -z "$line" ] && continue
+          tag=$(echo "$line" | jq -r '.tag')
+          echo "Deleting release + tag: $tag"
+          gh release delete "$tag" --yes --cleanup-tag -R "$REPO" || true
+        done < <(echo "$DATA" | jq -c --argjson keep "$KEEP" --argjson kmin "$KEEP_MIN" --argjson md "$MAX_DAYS" '
+          [.[] | select(.draft == false and (.published_at | type == "string"))]
+          | sort_by(.published_at) | reverse
+          | map({
+              tag: .tag_name,
+              published_at: .published_at,
+              dl: ([.assets[]? | .download_count // 0] | add)
+            })
+          | .[$keep:]
+          | map(. + { days: (((now - (.published_at | fromdateiso8601)) / 86400) | floor) })
+          | map(select(.dl < $kmin or .days > $md))
+          | .[]
+        ')
+        
+    - name: Trigger build
+      if: steps.cacheHash.outputs.cache-hit != 'true'
+      uses: peter-evans/repository-dispatch@v4
+      with:
+        token: ${{ secrets.ACTIONS_TRIGGER_PAT }}
+        event-type: openwrt_source_update

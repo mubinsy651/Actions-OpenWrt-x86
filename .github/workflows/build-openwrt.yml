@@ -18,15 +18,8 @@ on:
         description: 'SSH connection to Actions'
         required: false
         default: 'false'
-  #watch:
-    #types: started
-    
-  #schedule:
-     #- cron: 00 22 * * *
-    
-  
+
 env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   REPO_URL: https://github.com/coolsnowwolf/lede
   REPO_BRANCH: master
   FEEDS_CONF: feeds.conf.default
@@ -45,191 +38,132 @@ jobs:
     #runs-on: ubuntu-latest
     #runs-on: ubuntu-22.04
     runs-on: ubuntu-24.04
-    
+
     steps:
-
-    - name: Maximize Build Space
-      uses: easimon/maximize-build-space@master
+    - name: Checkout main-repo
+      uses: actions/checkout@v5
       with:
-        root-reserve-mb: 6144
-        swap-size-mb: 10240
-        remove-dotnet: 'true'
-        remove-android: 'true'
-        remove-haskell: 'true'
-        remove-codeql: 'true'
-        remove-docker-images: 'true'
-        build-mount-path: '/workdir'
-        
-    - name: Checkout
-      uses: actions/checkout@main
-      
-    - name: Disk space
-      run: |
-           echo "Free space:"
-           df -h
+        path: main-repo
 
-    - name: 初始化环境
+    - name: Free Disk Space (Ubuntu)
+      uses: jlumbroso/free-disk-space@main
+      with:
+        tool-cache: true
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: true
+        docker-images: true
+        swap-storage: false
+
+    - name: Check free space
+      run: df -hT
+
+    - name: Initialization environment
       env:
         DEBIAN_FRONTEND: noninteractive
       run: |
-        docker rmi -f $(docker images -q) 2>/dev/null || true
-        sudo rm -rf /usr/share/dotnet /usr/local/lib/android $AGENT_TOOLSDIRECTORY
-        sudo swapoff -a && sudo rm -f /swapfile /mnt/swapfile
-        sudo -E apt-get -y purge azure-cli ghc* zulu* llvm* firefox google* dotnet* powershell openjdk* mongodb* moby* || true
-        sudo -E apt-get -y update
-        #sudo -E apt-get -y install $(curl -fsSL https://ophub.org/ubuntu2404-make-openwrt-depends)
-        sudo -E apt-get -y install $(curl -fsSL https://raw.githubusercontent.com/Zero-ZY/Actions-OpenWrt-x86/ceba440c26ce7688925b63d45103fd0f81ea3a2e/make-openwrt-depends/ubuntu2404-make-openwrt-depends)
-        sudo -E systemctl daemon-reload
-        sudo -E apt-get -y autoremove --purge
-        sudo -E apt-get -y clean
+        sudo bash -c 'bash <(curl -s https://build-scripts.immortalwrt.org/init_build_environment.sh)'
+        sudo -E apt-get -qq autoremove --purge
+        sudo -E apt-get -qq clean
         sudo timedatectl set-timezone "$TZ"
-        sudo mkdir -p /workdir
-        sudo chown $USER:$GROUPS /workdir
-        
+
     - name: Clone source code
-      working-directory: /workdir
-      run: |
-        df -hT $PWD
-        git clone $REPO_URL -b $REPO_BRANCH openwrt
-        ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
-   
+      run: git clone $REPO_URL -b $REPO_BRANCH openwrt
+
     - name: Cache
       uses: klever1988/cachewrtbuild@main
       with:
-       ccache: 'true' #'true' 默认值
-       #清空缓存
-       clean:  'false'  # 'false' 默认值
-       prefix: ${{ github.workspace }}/openwrt
-    
-    - name: luci-app-openclash install
+        ccache: 'true'
+        clean: 'false'
+        prefix: ${{ github.workspace }}/openwrt
+
+    - name: Install custom packages
+      working-directory: openwrt
       run: |
-        cd openwrt
         mkdir package/luci-app-openclash
-        cd package/luci-app-openclash
+        pushd package/luci-app-openclash
         git init
         git remote add -f origin https://github.com/vernesong/OpenClash.git
         git config core.sparsecheckout true
         echo "luci-app-openclash" >> .git/info/sparse-checkout
         git pull --depth 1 origin master
-        git branch --set-upstream-to=origin/master 
-    
-    - name: luci-app-romupdate
-      run: |
-        cd openwrt/package    
+        git branch --set-upstream-to=origin/master
+        popd
+
+        pushd package
+        #luci-app-romupdate
         git clone -b dev https://github.com/Blueplanet20120/luci-app-romupdate.git
-    
-    - name: luci-theme-design
-      run: |
-        cd openwrt/package 		
-        git clone https://github.com/gngpp/luci-theme-design.git
-
-    - name: luci-theme-neobird
-      run: |
-        cd openwrt/package 		
-        git clone https://github.com/thinktip/luci-theme-neobird.git
-
-    #- name: luci-theme-argon
-    #  run: |
-    #    cd openwrt/package/lean
-    #    rm -rf luci-theme-argon
-    #    git clone -b 18.06 https://github.com/jerrykuku/luci-theme-argon.git luci-theme-argon
         
-    - name: aliyundrive-webdav
-      run: |
-        cd openwrt/package 
+        #aliyundrive-webdav
         git clone https://github.com/messense/aliyundrive-webdav.git
-       
-    - name: luci-app-frpc
-      run: |
-        cd openwrt/package 
+        
+        #luci-app-frpc
         git clone https://github.com/kuoruan/luci-app-frpc.git
-
-    - name: luci-app-netdata
-      run: |
-        cd openwrt/package 
+        
+        #luci-theme-design
+        #git clone https://github.com/gngpp/luci-theme-design.git
+        
+        #luci-theme-neobird
+        git clone https://github.com/thinktip/luci-theme-neobird.git
+        
+        #luci-app-netdata
         git clone https://github.com/sirpdboy/luci-app-netdata.git
-
-    - name: luci-app-easytier
-      run: |
-        cd openwrt/package 
+        
+        #luci-app-easytier
         git clone https://github.com/EasyTier/luci-app-easytier.git
-
-    - name: luci-app-ddns-go
-      run: |
-        cd openwrt/package 
-         git clone -b lua https://github.com/sirpdboy/luci-app-ddns-go.git
-
-    - name: luci-app-bandwidthd
-      run: |
-        cd openwrt/package 
-         git clone https://github.com/AlexZhuo/luci-app-bandwidthd.git
-
-    - name: luci-app-taskplan
-      run: |
-        cd openwrt/package 
-         git clone https://github.com/sirpdboy/luci-app-taskplan.git
-
-    - name: luci-app-oaf
-      run: |
-        cd openwrt/package
-        git clone https://github.com/destan19/OpenAppFilter.git
-
-   # - name: wrtbwmon
-   #   run: |
-   #     cd openwrt/package 
-   #      git clone https://github.com/brvphoenix/wrtbwmon.git
-
-   # - name: luci-app-wrtbwmon
-   #   run: |
-   #     cd openwrt/package 
-   #     git clone https://github.com/brvphoenix/luci-app-wrtbwmon.git
         
-    #- name: luci-app-adguardhome
-      #run: |
-         #cd openwrt/package 
-         #git clone https://github.com/uamrws/luci-app-adguardhome.git
-    
-    - name: Load custom feeds
-      run: |
-        [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
-        chmod +x $DIY_P1_SH
-        cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P1_SH
+        #luci-app-ddns-go
+        git clone -b lua https://github.com/sirpdboy/luci-app-ddns-go.git
         
-   
-    - name: lenyu
+        #luci-app-bandwidthd
+        git clone https://github.com/AlexZhuo/luci-app-bandwidthd.git
+        
+        #luci-app-taskplan
+        git clone https://github.com/sirpdboy/luci-app-taskplan.git
+        
+        #luci-app-oaf
+        git clone https://github.com/destan19/OpenAppFilter.git package/OpenAppFilter  
+        
+        popd
+
+    - name: 加载自定义订阅源
+      working-directory: openwrt
       run: |
-        cd openwrt 
-        bash  lenyu.sh
+        [ -e ../main-repo/$FEEDS_CONF ] && mv ../main-repo/$FEEDS_CONF feeds.conf.default
+        chmod +x ../main-repo/$DIY_P1_SH
+        ../main-repo/$DIY_P1_SH
+        bash ../main-repo/lenyu.sh
 
+    - name: 更新订阅源
+      working-directory: openwrt
+      run: ./scripts/feeds update -a
 
-    - name: Update feeds
-      run: cd openwrt && ./scripts/feeds update -a
+    - name: 安装订阅源
+      working-directory: openwrt
+      run: ./scripts/feeds install -a
 
-    - name: Install feeds
-      run: cd openwrt && ./scripts/feeds install -a
-
-    - name: Load custom configuration
+    - name: 加载自定义配置
+      working-directory: openwrt
       run: |
-        [ -e files ] && mv files openwrt/files
-        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
-        chmod +x $DIY_P2_SH
-        cd openwrt
-        $GITHUB_WORKSPACE/$DIY_P2_SH
+        [ -e ../main-repo/files ] && mv ../main-repo/files files
+        [ -e ../main-repo/$CONFIG_FILE ] && mv ../main-repo/$CONFIG_FILE .config
+        chmod +x ../main-repo/$DIY_P2_SH
+        ../main-repo/$DIY_P2_SH
 
     - name: SSH connection to Actions
       uses: P3TERX/ssh2actions@v1.0.0
-      if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh  != 'false') || contains(github.event.action, 'ssh')
+      if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh != 'false') || contains(github.event.action, 'ssh')
       env:
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
 
-    - name: Download package
+    - name: 下载 package
       id: package
       run: |
         cd openwrt
         echo -e 'CONFIG_DEVEL=y\nCONFIG_CCACHE=y' >> .config
-        #----------------------------------------------------------------------------------------------------------
+        
         # 1. 防 Rust 404
         if [ -f feeds/packages/lang/rust/Makefile ]; then
           sed -i '/download-ci-llvm/ s/true/false/g' feeds/packages/lang/rust/Makefile
@@ -250,20 +184,25 @@ jobs:
         echo "CONFIG_PACKAGE_samba4-server=y" >> .config
         
         # 4. ☢️ 物理剔除与 ccache 致命冲突的 vlmcsd (KMS 激活服务器)
-        find feeds package -name "luci-app-vlmcsd" -type d -exec rm -rf {} +
-        find feeds package -name "vlmcsd" -type d -exec rm -rf {} +
-        sed -i 's/CONFIG_PACKAGE_luci-app-vlmcsd=y/# CONFIG_PACKAGE_luci-app-vlmcsd is not set/g' .config
-        sed -i 's/CONFIG_PACKAGE_vlmcsd=y/# CONFIG_PACKAGE_vlmcsd is not set/g' .config
-        #----------------------------------------------------------------------------------------------------------
+        #find feeds package -name "luci-app-vlmcsd" -type d -exec rm -rf {} +
+        #find feeds package -name "vlmcsd" -type d -exec rm -rf {} +
+        #sed -i 's/CONFIG_PACKAGE_luci-app-vlmcsd=y/# CONFIG_PACKAGE_luci-app-vlmcsd is not set/g' .config
+        #sed -i 's/CONFIG_PACKAGE_vlmcsd=y/# CONFIG_PACKAGE_vlmcsd is not set/g' .config
+        
+        # 4. 修复 vlmcsd (KMS 激活服务器)与 ccache 的冲突
+        if [ -f feeds/packages/net/vlmcsd/Makefile ]; then
+          sed -i 's/\$(MAKE) -C \$(PKG_BUILD_DIR)/CCACHE_DISABLE=1 \$(MAKE) -C \$(PKG_BUILD_DIR)/g' feeds/packages/net/vlmcsd/Makefile
+        fi
+        
         make defconfig
         make download -j8
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
-    - name: Compile the firmware
+    - name: 编译固件
+      working-directory: openwrt
       id: compile
       run: |
-        cd openwrt
         echo -e "$(nproc) thread compile"
         make -j$(nproc) || make -j1 || make -j1 V=s
         echo "status=success" >> $GITHUB_OUTPUT
@@ -271,98 +210,92 @@ jobs:
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
         echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
 
-    - name: Check space usage
+    - name: 检查空间占用（编译后）
       if: (!cancelled())
       run: df -hT
 
-    - name: Upload bin directory
-      uses: actions/upload-artifact@main
+    - name: 上传 bin 目录
+      uses: actions/upload-artifact@v6
       if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
       with:
         name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: openwrt/bin
-   
-    - name: delete files
-      run: |
-        cd openwrt 
-        bash  rename.sh
-    
 
-    - name: Organize files
-      id: organize
-      if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
+    # 【核心修复点开始】：给所有的后续动作加装 success 编译成功校验锁
+    - name: 运行 rename.sh
+      working-directory: openwrt
+      if: steps.compile.outputs.status == 'success' && !cancelled()
       run: |
-        cd openwrt/bin/targets/*/*
+        bash ../main-repo/rename.sh
+
+    - name: 整理文件
+      working-directory: openwrt
+      id: organize
+      if: steps.compile.outputs.status == 'success' && env.UPLOAD_FIRMWARE == 'true' && !cancelled()
+      run: |
+        cd bin/targets/*/*
         rm -rf packages
         echo "FIRMWARE=$PWD" >> $GITHUB_ENV
         echo "status=success" >> $GITHUB_OUTPUT
 
-    - name: Upload firmware directory
-      uses: actions/upload-artifact@main
+    - name: 上传固件目录
+      uses: actions/upload-artifact@v6
       if: steps.organize.outputs.status == 'success' && !cancelled()
       with:
         name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
         path: ${{ env.FIRMWARE }}
 
-    - name: Upload firmware to cowtransfer
-      id: cowtransfer
-      if: steps.organize.outputs.status == 'success' && env.UPLOAD_COWTRANSFER == 'true' && !cancelled()
-      run: |
-        curl -fsSL git.io/file-transfer | sh
-        ./transfer cow --block 2621440 -s -p 64 --no-progress ${FIRMWARE} 2>&1 | tee cowtransfer.log
-        echo "::warning file=cowtransfer.com::$(cat cowtransfer.log | grep https)"
-        echo "url=$(cat cowtransfer.log | grep https | cut -f3 -d" ")" >> $GITHUB_OUTPUT
-
-    - name: Upload firmware to WeTransfer
-      id: wetransfer
-      if: steps.organize.outputs.status == 'success' && env.UPLOAD_WETRANSFER == 'true' && !cancelled()
-      run: |
-        curl -fsSL git.io/file-transfer | sh
-        ./transfer wet -s -p 16 --no-progress ${FIRMWARE} 2>&1 | tee wetransfer.log
-        echo "::warning file=wetransfer.com::$(cat wetransfer.log | grep https)"
-        echo "url=$(cat wetransfer.log | grep https | cut -f3 -d" ")" >> $GITHUB_OUTPUT
-
-    - name: Generate release tag
+    - name: 生成 release tag
+      working-directory: openwrt
       id: tag
-      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+      if: steps.compile.outputs.status == 'success' && env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
-        echo "release_tag=$(cat openwrt/wget/op_version1)" >> $GITHUB_OUTPUT
-        git -C openwrt log --pretty=format:"%s(#By %an)"  --graph --since=3.hour >> release.txt
-        git -C openwrt/feeds/packages log --pretty=format:"%s(#By %an)"  --graph --since=3.hour >> release.txt
-        git -C openwrt/feeds/luci log --pretty=format:"%s(#By %an)"  --graph --since=3.hour >> release.txt
-        git -C openwrt/feeds/routing log --pretty=format:"%s(#By %an)"  --graph --since=3.hour >> release.txt
-        git -C openwrt/feeds/telephony log --pretty=format:"%s(#By %an)"  --graph --since=3.hour >> release.txt
-        git -C openwrt/feeds/helloworld log --pretty=format:"%s(#By %an)"  --graph --since=4.hour >> release.txt
-        git -C openwrt/feeds/passwall log --pretty=format:"%s(#By %an)"  --graph --since=8.hour >> release.txt
-        git -C openwrt/package/luci-app-openclash log --pretty=format:"%s(#By %an)"  --graph --since=8.hour >> release.txt
-        test  ! -s release.txt && echo -e "\n* The source code is not updated." >> release.txt
-        sed -i '1i ## Firmware Update Log' release.txt
         touch release.txt
-        [ $UPLOAD_COWTRANSFER = true ] && echo "🔗 [Cowtransfer](${{ steps.cowtransfer.outputs.url }})" >> release.txt
-        [ $UPLOAD_WETRANSFER = true ] && echo "🔗 [WeTransfer](${{ steps.wetransfer.outputs.url }})" >> release.txt
+        [ -f wget/op_version1 ] && echo "release_tag=$(cat wget/op_version1)" >> $GITHUB_OUTPUT || echo "release_tag=OpenWrt_${{ env.FILE_DATE }}" >> $GITHUB_OUTPUT
+        git log --pretty=format:"%s(#By %an)" --graph --since=3.hour >> release.txt
+        
+        git -C feeds/packages log --pretty=format:"%s(#By %an)" --graph --since=3.hour >> release.txt || true
+        git -C feeds/luci log --pretty=format:"%s(#By %an)" --graph --since=3.hour >> release.txt || true
+        git -C feeds/routing log --pretty=format:"%s(#By %an)" --graph --since=3.hour >> release.txt || true
+        git -C feeds/telephony log --pretty=format:"%s(#By %an)" --graph --since=3.hour >> release.txt || true
+        git -C feeds/helloworld log --pretty=format:"%s(#By %an)" --graph --since=4.hour >> release.txt || true
+        git -C feeds/passwall log --pretty=format:"%s(#By %an)" --graph --since=8.hour >> release.txt || true
+        git -C package/luci-app-openclash log --pretty=format:"%s(#By %an)" --graph --since=8.hour >> release.txt || true
+        
+        test ! -s release.txt && echo -e "\n* The source code is not updated." >> release.txt
+        sed -i '1i ## Firmware Update Log' release.txt
         echo "status=success" >> $GITHUB_OUTPUT
 
-    - name: Upload firmware to release
-      uses: softprops/action-gh-release@v2
+    - name: 上传固件并发布
+      uses: softprops/action-gh-release@v3
       if: steps.tag.outputs.status == 'success' && !cancelled()
       env:
         GITHUB_TOKEN: ${{ secrets.ACTIONS_TRIGGER_PAT }}
       with:
         tag_name: ${{ steps.tag.outputs.release_tag }}
-        body_path: release.txt
+        body_path: openwrt/release.txt
         files: ${{ env.FIRMWARE }}/*
+    # 【核心修复点结束】
 
     - name: Delete workflow runs
-      uses: Lenyu2020/delete-workflow-runs@main
+      uses: Mattraks/delete-workflow-runs@main
       with:
         retain_days: 1
         keep_minimum_runs: 5
 
     - name: Remove old Releases
-      uses: dev-drprasad/delete-older-releases@master
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-      with:
-        keep_latest: 10
-        delete_tags: true
       env:
-        GITHUB_TOKEN: ${{ secrets.ACTIONS_TRIGGER_PAT }}
+        GH_TOKEN: ${{ secrets.ACTIONS_TRIGGER_PAT }}
+      run: |
+        set -euo pipefail
+        REPO="${{ github.repository }}"
+        KEEP=10
+        i=0
+        while IFS= read -r tag; do
+          if [ "$i" -ge "$KEEP" ]; then
+            echo "Deleting release (and tag): $tag"
+            gh release delete "$tag" --yes --cleanup-tag -R "$REPO" || true
+          fi
+          i=$((i + 1))
+        done < <(gh api "repos/${REPO}/releases" --paginate --jq '.[] | .tag_name')

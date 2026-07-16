@@ -1,0 +1,368 @@
+#
+# Copyright (c) 2019-2020 P3TERX <https://p3terx.com>
+#
+# This is free software, licensed under the MIT License.
+# See /LICENSE for more information.
+#
+# https://github.com/P3TERX/Actions-OpenWrt
+# Description: Build OpenWrt using GitHub Actions
+#
+
+name: Build OpenWrt
+
+on:
+  repository_dispatch:
+  workflow_dispatch:
+    inputs:
+      ssh:
+        description: 'SSH connection to Actions'
+        required: false
+        default: 'false'
+  #watch:
+    #types: started
+    
+  #schedule:
+     #- cron: 00 22 * * *
+    
+  
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  REPO_URL: https://github.com/coolsnowwolf/lede
+  REPO_BRANCH: master
+  FEEDS_CONF: feeds.conf.default
+  CONFIG_FILE: .diffconfig
+  DIY_P1_SH: diy-part1.sh
+  DIY_P2_SH: diy-part2.sh
+  UPLOAD_BIN_DIR: false
+  UPLOAD_FIRMWARE: true
+  UPLOAD_COWTRANSFER: false
+  UPLOAD_WETRANSFER: false
+  UPLOAD_RELEASE: true
+  TZ: Asia/Shanghai
+
+jobs:
+  build:
+    #runs-on: ubuntu-latest
+    #runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
+    
+    steps:
+
+    - name: Maximize Build Space
+      uses: easimon/maximize-build-space@master
+      with:
+        root-reserve-mb: 6144
+        swap-size-mb: 10240
+        remove-dotnet: 'true'
+        remove-android: 'true'
+        remove-haskell: 'true'
+        remove-codeql: 'true'
+        remove-docker-images: 'true'
+        build-mount-path: '/workdir'
+        
+    - name: Checkout
+      uses: actions/checkout@main
+      
+    - name: Disk space
+      run: |
+           echo "Free space:"
+           df -h
+
+    - name: 初始化环境
+      env:
+        DEBIAN_FRONTEND: noninteractive
+      run: |
+        docker rmi -f $(docker images -q) 2>/dev/null || true
+        sudo rm -rf /usr/share/dotnet /usr/local/lib/android $AGENT_TOOLSDIRECTORY
+        sudo swapoff -a && sudo rm -f /swapfile /mnt/swapfile
+        sudo -E apt-get -y purge azure-cli ghc* zulu* llvm* firefox google* dotnet* powershell openjdk* mongodb* moby* || true
+        sudo -E apt-get -y update
+        #sudo -E apt-get -y install $(curl -fsSL https://ophub.org/ubuntu2404-make-openwrt-depends)
+        sudo -E apt-get -y install $(curl -fsSL https://raw.githubusercontent.com/Zero-ZY/Actions-OpenWrt-x86/ceba440c26ce7688925b63d45103fd0f81ea3a2e/make-openwrt-depends/ubuntu2404-make-openwrt-depends)
+        sudo -E systemctl daemon-reload
+        sudo -E apt-get -y autoremove --purge
+        sudo -E apt-get -y clean
+        sudo timedatectl set-timezone "$TZ"
+        sudo mkdir -p /workdir
+        sudo chown $USER:$GROUPS /workdir
+        
+    - name: Clone source code
+      working-directory: /workdir
+      run: |
+        df -hT $PWD
+        git clone $REPO_URL -b $REPO_BRANCH openwrt
+        ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
+   
+    - name: Cache
+      uses: klever1988/cachewrtbuild@main
+      with:
+       ccache: 'true' #'true' 默认值
+       #清空缓存
+       clean:  'false'  # 'false' 默认值
+       prefix: ${{ github.workspace }}/openwrt
+    
+    - name: luci-app-openclash install
+      run: |
+        cd openwrt
+        mkdir package/luci-app-openclash
+        cd package/luci-app-openclash
+        git init
+        git remote add -f origin https://github.com/vernesong/OpenClash.git
+        git config core.sparsecheckout true
+        echo "luci-app-openclash" >> .git/info/sparse-checkout
+        git pull --depth 1 origin master
+        git branch --set-upstream-to=origin/master 
+    
+    - name: luci-app-romupdate
+      run: |
+        cd openwrt/package    
+        git clone -b dev https://github.com/Blueplanet20120/luci-app-romupdate.git
+    
+    - name: luci-theme-design
+      run: |
+        cd openwrt/package 		
+        git clone https://github.com/gngpp/luci-theme-design.git
+
+    - name: luci-theme-neobird
+      run: |
+        cd openwrt/package 		
+        git clone https://github.com/thinktip/luci-theme-neobird.git
+
+    #- name: luci-theme-argon
+    #  run: |
+    #    cd openwrt/package/lean
+    #    rm -rf luci-theme-argon
+    #    git clone -b 18.06 https://github.com/jerrykuku/luci-theme-argon.git luci-theme-argon
+        
+    - name: aliyundrive-webdav
+      run: |
+        cd openwrt/package 
+        git clone https://github.com/messense/aliyundrive-webdav.git
+       
+    - name: luci-app-frpc
+      run: |
+        cd openwrt/package 
+        git clone https://github.com/kuoruan/luci-app-frpc.git
+
+    - name: luci-app-netdata
+      run: |
+        cd openwrt/package 
+        git clone https://github.com/sirpdboy/luci-app-netdata.git
+
+    - name: luci-app-easytier
+      run: |
+        cd openwrt/package 
+        git clone https://github.com/EasyTier/luci-app-easytier.git
+
+    - name: luci-app-ddns-go
+      run: |
+        cd openwrt/package 
+         git clone -b lua https://github.com/sirpdboy/luci-app-ddns-go.git
+
+    - name: luci-app-bandwidthd
+      run: |
+        cd openwrt/package 
+         git clone https://github.com/AlexZhuo/luci-app-bandwidthd.git
+
+    - name: luci-app-taskplan
+      run: |
+        cd openwrt/package 
+         git clone https://github.com/sirpdboy/luci-app-taskplan.git
+
+    - name: luci-app-oaf
+      run: |
+        cd openwrt/package
+        git clone https://github.com/destan19/OpenAppFilter.git
+
+   # - name: wrtbwmon
+   #   run: |
+   #     cd openwrt/package 
+   #      git clone https://github.com/brvphoenix/wrtbwmon.git
+
+   # - name: luci-app-wrtbwmon
+   #   run: |
+   #     cd openwrt/package 
+   #     git clone https://github.com/brvphoenix/luci-app-wrtbwmon.git
+        
+    #- name: luci-app-adguardhome
+      #run: |
+         #cd openwrt/package 
+         #git clone https://github.com/uamrws/luci-app-adguardhome.git
+    
+    - name: Load custom feeds
+      run: |
+        [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
+        chmod +x $DIY_P1_SH
+        cd openwrt
+        $GITHUB_WORKSPACE/$DIY_P1_SH
+        
+   
+    - name: lenyu
+      run: |
+        cd openwrt 
+        bash  lenyu.sh
+
+
+    - name: Update feeds
+      run: cd openwrt && ./scripts/feeds update -a
+
+    - name: Install feeds
+      run: cd openwrt && ./scripts/feeds install -a
+
+    - name: Load custom configuration
+      run: |
+        [ -e files ] && mv files openwrt/files
+        [ -e $CONFIG_FILE ] && mv $CONFIG_FILE openwrt/.config
+        chmod +x $DIY_P2_SH
+        cd openwrt
+        $GITHUB_WORKSPACE/$DIY_P2_SH
+
+    - name: SSH connection to Actions
+      uses: P3TERX/ssh2actions@v1.0.0
+      if: (github.event.inputs.ssh == 'true' && github.event.inputs.ssh  != 'false') || contains(github.event.action, 'ssh')
+      env:
+        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+
+    - name: Download package
+      id: package
+      run: |
+        cd openwrt
+        echo -e 'CONFIG_DEVEL=y\nCONFIG_CCACHE=y' >> .config
+        #----------------------------------------------------------------------------------------------------------
+        # 1. 防 Rust 404
+        if [ -f feeds/packages/lang/rust/Makefile ]; then
+          sed -i '/download-ci-llvm/ s/true/false/g' feeds/packages/lang/rust/Makefile
+        fi
+        
+        # 2. 物理剔除 ksmbd 及其捆绑小弟
+        rm -rf package/kernel/ksmbd
+        rm -rf feeds/packages/net/ksmbd-tools
+        find feeds package -name "luci-app-ksmbd" -type d -exec rm -rf {} +
+        find feeds package -name "autosamba" -type d -exec rm -rf {} +
+        
+        # 3. 强制切换 samba4
+        sed -i 's/CONFIG_PACKAGE_luci-app-ksmbd=y/# CONFIG_PACKAGE_luci-app-ksmbd is not set/g' .config
+        sed -i 's/CONFIG_PACKAGE_ksmbd-server=y/# CONFIG_PACKAGE_ksmbd-server is not set/g' .config
+        sed -i 's/CONFIG_PACKAGE_autosamba=y/# CONFIG_PACKAGE_autosamba is not set/g' .config
+        echo "CONFIG_PACKAGE_luci-app-samba4=y" >> .config
+        echo "CONFIG_PACKAGE_samba4-libs=y" >> .config
+        echo "CONFIG_PACKAGE_samba4-server=y" >> .config
+        
+        # 4. ☢️ 物理剔除与 ccache 致命冲突的 vlmcsd (KMS 激活服务器)
+        find feeds package -name "luci-app-vlmcsd" -type d -exec rm -rf {} +
+        find feeds package -name "vlmcsd" -type d -exec rm -rf {} +
+        sed -i 's/CONFIG_PACKAGE_luci-app-vlmcsd=y/# CONFIG_PACKAGE_luci-app-vlmcsd is not set/g' .config
+        sed -i 's/CONFIG_PACKAGE_vlmcsd=y/# CONFIG_PACKAGE_vlmcsd is not set/g' .config
+        #----------------------------------------------------------------------------------------------------------
+        make defconfig
+        make download -j8
+        find dl -size -1024c -exec ls -l {} \;
+        find dl -size -1024c -exec rm -f {} \;
+
+    - name: Compile the firmware
+      id: compile
+      run: |
+        cd openwrt
+        echo -e "$(nproc) thread compile"
+        make -j$(nproc) || make -j1 || make -j1 V=s
+        echo "status=success" >> $GITHUB_OUTPUT
+        grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
+        [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
+        echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+
+    - name: Check space usage
+      if: (!cancelled())
+      run: df -hT
+
+    - name: Upload bin directory
+      uses: actions/upload-artifact@main
+      if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
+      with:
+        name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        path: openwrt/bin
+   
+    - name: delete files
+      run: |
+        cd openwrt 
+        bash  rename.sh
+    
+
+    - name: Organize files
+      id: organize
+      if: env.UPLOAD_FIRMWARE == 'true' && !cancelled()
+      run: |
+        cd openwrt/bin/targets/*/*
+        rm -rf packages
+        echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+        echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: Upload firmware directory
+      uses: actions/upload-artifact@main
+      if: steps.organize.outputs.status == 'success' && !cancelled()
+      with:
+        name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        path: ${{ env.FIRMWARE }}
+
+    - name: Upload firmware to cowtransfer
+      id: cowtransfer
+      if: steps.organize.outputs.status == 'success' && env.UPLOAD_COWTRANSFER == 'true' && !cancelled()
+      run: |
+        curl -fsSL git.io/file-transfer | sh
+        ./transfer cow --block 2621440 -s -p 64 --no-progress ${FIRMWARE} 2>&1 | tee cowtransfer.log
+        echo "::warning file=cowtransfer.com::$(cat cowtransfer.log | grep https)"
+        echo "url=$(cat cowtransfer.log | grep https | cut -f3 -d" ")" >> $GITHUB_OUTPUT
+
+    - name: Upload firmware to WeTransfer
+      id: wetransfer
+      if: steps.organize.outputs.status == 'success' && env.UPLOAD_WETRANSFER == 'true' && !cancelled()
+      run: |
+        curl -fsSL git.io/file-transfer | sh
+        ./transfer wet -s -p 16 --no-progress ${FIRMWARE} 2>&1 | tee wetransfer.log
+        echo "::warning file=wetransfer.com::$(cat wetransfer.log | grep https)"
+        echo "url=$(cat wetransfer.log | grep https | cut -f3 -d" ")" >> $GITHUB_OUTPUT
+
+    - name: Generate release tag
+      id: tag
+      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+      run: |
+        echo "release_tag=$(cat openwrt/wget/op_version1)" >> $GITHUB_OUTPUT
+        git -C openwrt log --pretty=format:"%s(#By %an)"  --graph --since=3.hour >> release.txt
+        git -C openwrt/feeds/packages log --pretty=format:"%s(#By %an)"  --graph --since=3.hour >> release.txt
+        git -C openwrt/feeds/luci log --pretty=format:"%s(#By %an)"  --graph --since=3.hour >> release.txt
+        git -C openwrt/feeds/routing log --pretty=format:"%s(#By %an)"  --graph --since=3.hour >> release.txt
+        git -C openwrt/feeds/telephony log --pretty=format:"%s(#By %an)"  --graph --since=3.hour >> release.txt
+        git -C openwrt/feeds/helloworld log --pretty=format:"%s(#By %an)"  --graph --since=4.hour >> release.txt
+        git -C openwrt/feeds/passwall log --pretty=format:"%s(#By %an)"  --graph --since=8.hour >> release.txt
+        git -C openwrt/package/luci-app-openclash log --pretty=format:"%s(#By %an)"  --graph --since=8.hour >> release.txt
+        test  ! -s release.txt && echo -e "\n* The source code is not updated." >> release.txt
+        sed -i '1i ## Firmware Update Log' release.txt
+        touch release.txt
+        [ $UPLOAD_COWTRANSFER = true ] && echo "🔗 [Cowtransfer](${{ steps.cowtransfer.outputs.url }})" >> release.txt
+        [ $UPLOAD_WETRANSFER = true ] && echo "🔗 [WeTransfer](${{ steps.wetransfer.outputs.url }})" >> release.txt
+        echo "status=success" >> $GITHUB_OUTPUT
+
+    - name: Upload firmware to release
+      uses: softprops/action-gh-release@v2
+      if: steps.tag.outputs.status == 'success' && !cancelled()
+      env:
+        GITHUB_TOKEN: ${{ secrets.ACTIONS_TRIGGER_PAT }}
+      with:
+        tag_name: ${{ steps.tag.outputs.release_tag }}
+        body_path: release.txt
+        files: ${{ env.FIRMWARE }}/*
+
+    - name: Delete workflow runs
+      uses: Lenyu2020/delete-workflow-runs@main
+      with:
+        retain_days: 1
+        keep_minimum_runs: 5
+
+    - name: Remove old Releases
+      uses: dev-drprasad/delete-older-releases@master
+      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+      with:
+        keep_latest: 10
+        delete_tags: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.ACTIONS_TRIGGER_PAT }}

@@ -29,10 +29,10 @@ sed -i 's/luci-static\/argon/luci-static\/design/g' package/lean/default-setting
 sed -i 's/\${interface:+-i $interface}/\# ${interface:+-i $interface}/g' feeds/packages/utils/ttyd/files/ttyd.init
 
 # 修改升级检测
-sed -i 's|/Lenyu2020/Actions-OpenWrt-x86|/Zero-ZY/Actions-OpenWrt-x86|g' files/usr/share/Check_Update.sh
-sed -i 's|/Lenyu2020/Actions-OpenWrt-x86|/Zero-ZY/Actions-OpenWrt-x86|g' files/usr/share/Lenyu-auto.sh
-sed -i 's|/Lenyu2020/Actions-OpenWrt-x86|/Zero-ZY/Actions-OpenWrt-x86|g' files/usr/share/Lenyu-version.sh
-sed -i 's|/Lenyu2020/Actions-OpenWrt-x86|/Zero-ZY/Actions-OpenWrt-x86|g' files/usr/share/Lenyu-pw.sh
+sed -i 's|/Lenyu2020/Actions-OpenWrt-x86|/mubinsy651/Actions-OpenWrt-x86|g' files/usr/share/Check_Update.sh
+sed -i 's|/Lenyu2020/Actions-OpenWrt-x86|/mubinsy651/Actions-OpenWrt-x86|g' files/usr/share/Lenyu-auto.sh
+sed -i 's|/Lenyu2020/Actions-OpenWrt-x86|/mubinsy651/Actions-OpenWrt-x86|g' files/usr/share/Lenyu-version.sh
+sed -i 's|/Lenyu2020/Actions-OpenWrt-x86|/mubinsy651/Actions-OpenWrt-x86|g' files/usr/share/Lenyu-pw.sh
 
 # 清空原有的发行版软件源，并写入指定的中科大镜像源
 echo 'src/gz openwrt_core https://mirrors.ustc.edu.cn/openwrt/releases/24.10.7/targets/x86/64/packages' > package/base-files/files/etc/opkg/distfeeds.conf

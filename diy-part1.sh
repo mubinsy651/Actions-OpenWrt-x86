@@ -178,7 +178,7 @@ EOOF
 
 cat>files/usr/share/Check_Update.sh<<-\EOF
 #!/bin/bash
-# https://github.com/Zero-ZY/Actions-OpenWrt-x86
+# https://github.com/mubinsy651/Actions-OpenWrt-x86
 # Actions-OpenWrt-x86 By Lenyu 20210505
 #path=$(dirname $(readlink -f $0))
 # cd ${path}

@@ -35,12 +35,12 @@ sed -i 's|/Lenyu2020/Actions-OpenWrt-x86|/mubinsy651/Actions-OpenWrt-x86|g' file
 sed -i 's|/Lenyu2020/Actions-OpenWrt-x86|/mubinsy651/Actions-OpenWrt-x86|g' files/usr/share/Lenyu-pw.sh
 
 # 清空原有的发行版软件源，并写入指定的中科大镜像源
-echo 'src/gz openwrt_core https://mirrors.ustc.edu.cn/openwrt/releases/24.10.7/targets/x86/64/packages' > package/base-files/files/etc/opkg/distfeeds.conf
-echo 'src/gz openwrt_base https://mirrors.ustc.edu.cn/openwrt/releases/24.10.7/packages/x86_64/base' >> package/base-files/files/etc/opkg/distfeeds.conf
-echo 'src/gz openwrt_luci https://mirrors.ustc.edu.cn/openwrt/releases/24.10.7/packages/x86_64/luci' >> package/base-files/files/etc/opkg/distfeeds.conf
-echo 'src/gz openwrt_packages https://mirrors.ustc.edu.cn/openwrt/releases/24.10.7/packages/x86_64/packages' >> package/base-files/files/etc/opkg/distfeeds.conf
-echo 'src/gz openwrt_routing https://mirrors.ustc.edu.cn/openwrt/releases/24.10.7/packages/x86_64/routing' >> package/base-files/files/etc/opkg/distfeeds.conf
-echo 'src/gz openwrt_telephony https://mirrors.ustc.edu.cn/openwrt/releases/24.10.7/packages/x86_64/telephony' >> package/base-files/files/etc/opkg/distfeeds.conf
+echo 'src/gz openwrt_core https://mirrors.ustc.edu.cn/openwrt/releases/25.12.5/targets/x86/64/packages' > package/base-files/files/etc/opkg/distfeeds.conf
+echo 'src/gz openwrt_base https://mirrors.ustc.edu.cn/openwrt/releases/25.12.5/packages/x86_64/base' >> package/base-files/files/etc/opkg/distfeeds.conf
+echo 'src/gz openwrt_luci https://mirrors.ustc.edu.cn/openwrt/releases/25.12.5/packages/x86_64/luci' >> package/base-files/files/etc/opkg/distfeeds.conf
+echo 'src/gz openwrt_packages https://mirrors.ustc.edu.cn/openwrt/releases/25.12.5/packages/x86_64/packages' >> package/base-files/files/etc/opkg/distfeeds.conf
+echo 'src/gz openwrt_routing https://mirrors.ustc.edu.cn/openwrt/releases/25.12.5/packages/x86_64/routing' >> package/base-files/files/etc/opkg/distfeeds.conf
+echo 'src/gz openwrt_telephony https://mirrors.ustc.edu.cn/openwrt/releases/25.12.5/packages/x86_64/telephony' >> package/base-files/files/etc/opkg/distfeeds.conf
 
 # ====================================================================================
 # 【自定义注入】开机5分钟网络检测与PPPoE精准重拨/限额重启脚本
